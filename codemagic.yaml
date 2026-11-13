@@ -1,0 +1,58 @@
+workflows:
+  ios-native-workflow:
+    name: iOS Native Workflow
+    instance_type: mac_mini_m1
+    max_build_duration: 45
+    integrations:
+      app_store_connect: ApiKey_Ai_Girl
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.learniman.engnowio
+      vars:
+        BUNDLE_ID: "com.learniman.engnowio"
+        XCODE_PROJECT: "LanguageSchool.xcodeproj"
+        XCODE_SCHEME: "LanguageSchool"
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/Library/Caches/CocoaPods
+    scripts:
+      - name: Install CocoaPods dependencies
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+        ignore_failure: true
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: >
+          cd $CM_BUILD_DIR
+
+          LATEST_BUILD_NUMBER=$(app-store-connect
+          get-latest-app-store-build-number "$BUNDLE_ID")
+
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+      - name: Build ipa for distribution
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      email:
+        recipients:
+          - denwhite223@gmail.com
+          - vervicowork@gmail.com
+          - kameneckiy228@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
